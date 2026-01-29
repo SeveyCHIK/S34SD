@@ -116,7 +116,8 @@ const app = {
             const u = app.users.find(x => x.accountNumber === a && x.pass === p);
             if(u) {
                 app.user = u; localStorage.setItem('iljas_v8', u.id); app.route();
-            } else alert('Неверно. Админ: 0000 / Toyota400');
+            } else alert('Ошибка: Неверный номер счета или пароль.');
+            if(navigator.vibrate) navigator.vibrate(200);
         },
         logout() {
             localStorage.removeItem('iljas_v8'); app.user = null; app.router.go('auth');
@@ -341,3 +342,4 @@ const app = {
 };
 
 window.onload = () => app.init();
+
