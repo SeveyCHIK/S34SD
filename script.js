@@ -1,13 +1,13 @@
 /* --- НАСТРОЙКИ БАЗЫ (ВСТАВЬ СВОИ ДАННЫЕ) --- */
-const BIN_ID = 'СЮДА_ТВОЙ_BIN_ID';       // Например: 65a8f123...
-const API_KEY = 'СЮДА_ТВОЙ_MASTER_KEY';  // Например: $2a$10...
+const BIN_ID = '697add8bd0ea881f408f3cb5';       // Например: 65a8f123...
+const API_KEY = '$2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi';  // Например: $2a$10...
 
 /* --- API СЛОЙ (РАБОТАЕТ БЕЗ NODE.JS) --- */
 const api = {
     async get() {
         try {
             const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-                headers: { 'X-Master-Key': API_KEY }
+                headers: { 'X-Master-Key': $2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi }
             });
             if (!r.ok) throw new Error('Ошибка базы');
             const data = await r.json();
@@ -24,7 +24,7 @@ const api = {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Master-Key': API_KEY
+                    'X-Master-Key': $2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi
                 },
                 body: JSON.stringify({ users: usersData })
             });
@@ -309,3 +309,4 @@ const app = {
 };
 
 window.onload = () => app.init();
+
