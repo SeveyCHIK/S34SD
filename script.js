@@ -1,46 +1,78 @@
-/* --- НАСТРОЙКИ БАЗЫ (ВСТАВЬ СВОИ ДАННЫЕ) --- */
-const BIN_ID = '697add8bd0ea881f408f3cb5';       // Например: 65a8f123...
-const API_KEY = '$2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi';  // Например: $2a$10...
+/* ================================================================= */
+/*               ТВОИ КЛЮЧИ (ВСТАВЬ ИХ СЮДА)                         */
+/* ================================================================= */
 
-/* --- API СЛОЙ (РАБОТАЕТ БЕЗ NODE.JS) --- */
+// 1. Вставь BIN ID (например: 65a8f...)
+const BIN_ID = '697add8bd0ea881f408f3cb5'; 
+
+// 2. Вставь X-Master-Key (например: $2a$10...)
+const API_KEY = '$2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi'; 
+
+/* ================================================================= */
+/*               ДАЛЬШЕ КОД НЕ ТРОГАЙ                                */
+/* ================================================================= */
+
 const api = {
     async get() {
+        // Если ключи не вставлены, используем память телефона (Демо режим)
+        if(BIN_ID.includes('ВСТАВЬ') || API_KEY.includes('ВСТАВЬ')) {
+            console.warn("Ключи не вставлены! Работает локальный режим.");
+            const local = localStorage.getItem('iljas_local_db');
+            return local ? JSON.parse(local) : [];
+        }
+        
+        // Работа с облаком
         try {
             const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-                headers: { 'X-Master-Key': $2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi }
+                headers: { 'X-Master-Key': API_KEY }
             });
             if (!r.ok) throw new Error('Ошибка базы');
             const data = await r.json();
             return data.record.users || [];
         } catch (e) {
-            console.error(e);
-            alert("Ошибка соединения с базой! Проверь ключи в script.js");
+            alert("Ошибка базы данных! Проверь ключи.");
             return [];
         }
     },
     async save(usersData) {
+        // Локальный режим
+        if(BIN_ID.includes('ВСТАВЬ') || API_KEY.includes('ВСТАВЬ')) {
+            localStorage.setItem('iljas_local_db', JSON.stringify(usersData));
+            return;
+        }
+
+        // Облачный режим
         try {
             await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Master-Key': $2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi
+                    'X-Master-Key': API_KEY
                 },
                 body: JSON.stringify({ users: usersData })
             });
         } catch (e) {
-            console.error("Ошибка сохранения:", e);
+            console.error("Save error", e);
         }
     }
 };
 
-/* --- ПРИЛОЖЕНИЕ (ЛОГИКА ОСТАЛАСЬ ТА ЖЕ) --- */
+/* --- ПРИЛОЖЕНИЕ --- */
 const app = {
     users: [], user: null, replyTo: null,
     
     async init() {
         this.users = await api.get();
-        // Загрузка темы
+        // Инициализация Админа, если база пустая
+        if(this.users.length === 0) {
+            this.users.push({
+                id: 'admin', accountNumber: '0000', pass: 'Toyota400',
+                name: 'ADMIN', balance: 999999999, isAdmin: true,
+                emoji: '👑', isFrozen: false, history: [], reactions: {}, wall: []
+            });
+            await api.save(this.users);
+        }
+
         if(localStorage.getItem('iljas_dark') === 'true') document.body.classList.add('dark-theme');
         
         const sess = localStorage.getItem('iljas_v8');
@@ -60,7 +92,7 @@ const app = {
             document.getElementById(`view-${p}`).classList.add('active');
             
             const nav = document.getElementById('nav-bar');
-            if(p==='auth' || (app.user && app.user.isAdmin)) nav.style.display='none';
+            if(p==='auth' || app.user?.isAdmin) nav.style.display='none';
             else {
                 nav.style.display='flex';
                 document.querySelectorAll('.n-btn').forEach(b=>b.classList.remove('active'));
@@ -177,7 +209,7 @@ const app = {
         async post() {
             const now = Date.now();
             if(app.user.lastComment && (now - app.user.lastComment < 30000)) {
-                return alert(`Подождите еще ${Math.ceil((30000-(now-app.user.lastComment))/1000)} сек`);
+                return alert(`Подождите ${Math.ceil((30000-(now-app.user.lastComment))/1000)} сек`);
             }
             const txt = document.getElementById('wall-input').value.trim();
             if(!txt) return;
@@ -309,4 +341,3 @@ const app = {
 };
 
 window.onload = () => app.init();
-
