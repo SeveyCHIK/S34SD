@@ -124,20 +124,33 @@ const app = {
         }
     },
 
-    home: {
+        home: {
         render() {
             const u = app.user;
-            document.getElementById('home-name').innerText = u.name;
-            document.getElementById('home-name-header').innerText = u.name;
-            document.getElementById('home-holder').innerText = u.name;
-            document.getElementById('home-holder-back').innerText = u.name;
+            if(!u) return;
+
+            // 1. ИСПРАВЛЕНИЕ: Правильные ID для имени
+            const nameHeader = document.getElementById('home-name-header');
+            if(nameHeader) nameHeader.innerText = u.name;
+
+            const nameHolder = document.getElementById('home-holder');
+            if(nameHolder) nameHolder.innerText = u.name;
+
+            const nameBack = document.getElementById('home-holder-back');
+            if(nameBack) nameBack.innerText = u.name;
+
+            // 2. Аватарка и Баланс
             document.getElementById('home-avatar').innerText = u.emoji || '👤';
             document.getElementById('home-bal').innerText = u.balance.toLocaleString();
             document.getElementById('home-acc').innerText = u.accountNumber;
-            const c = document.querySelector('.card-body');
-            if(u.isFrozen) c.parentElement.classList.add('frozen'); else c.parentElement.classList.remove('frozen');
+
+            // 3. Заморозка
+            const cardBody = document.querySelector('.card-body');
+            if(u.isFrozen) cardBody.parentElement.classList.add('frozen'); 
+            else cardBody.parentElement.classList.remove('frozen');
         }
     },
+
 
     social: {
         viewId: null,
@@ -342,4 +355,5 @@ const app = {
 };
 
 window.onload = () => app.init();
+
 
