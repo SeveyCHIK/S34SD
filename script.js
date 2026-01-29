@@ -1,14 +1,46 @@
+/* --- НАСТРОЙКИ БАЗЫ (ВСТАВЬ СВОИ ДАННЫЕ) --- */
+const BIN_ID = 'СЮДА_ТВОЙ_BIN_ID';       // Например: 65a8f123...
+const API_KEY = 'СЮДА_ТВОЙ_MASTER_KEY';  // Например: $2a$10...
+
+/* --- API СЛОЙ (РАБОТАЕТ БЕЗ NODE.JS) --- */
 const api = {
-    async get() { try{const r=await fetch('/api/users'); return await r.json();}catch{return[];} },
-    async save(d) { await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d) }); }
+    async get() {
+        try {
+            const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                headers: { 'X-Master-Key': API_KEY }
+            });
+            if (!r.ok) throw new Error('Ошибка базы');
+            const data = await r.json();
+            return data.record.users || [];
+        } catch (e) {
+            console.error(e);
+            alert("Ошибка соединения с базой! Проверь ключи в script.js");
+            return [];
+        }
+    },
+    async save(usersData) {
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify({ users: usersData })
+            });
+        } catch (e) {
+            console.error("Ошибка сохранения:", e);
+        }
+    }
 };
 
+/* --- ПРИЛОЖЕНИЕ (ЛОГИКА ОСТАЛАСЬ ТА ЖЕ) --- */
 const app = {
     users: [], user: null, replyTo: null,
     
     async init() {
         this.users = await api.get();
-        // Load Theme
+        // Загрузка темы
         if(localStorage.getItem('iljas_dark') === 'true') document.body.classList.add('dark-theme');
         
         const sess = localStorage.getItem('iljas_v8');
@@ -28,7 +60,7 @@ const app = {
             document.getElementById(`view-${p}`).classList.add('active');
             
             const nav = document.getElementById('nav-bar');
-            if(p==='auth' || app.user?.isAdmin) nav.style.display='none';
+            if(p==='auth' || (app.user && app.user.isAdmin)) nav.style.display='none';
             else {
                 nav.style.display='flex';
                 document.querySelectorAll('.n-btn').forEach(b=>b.classList.remove('active'));
@@ -52,7 +84,7 @@ const app = {
             const u = app.users.find(x => x.accountNumber === a && x.pass === p);
             if(u) {
                 app.user = u; localStorage.setItem('iljas_v8', u.id); app.route();
-            } else alert('Неверно');
+            } else alert('Неверно. Админ: 0000 / Toyota400');
         },
         logout() {
             localStorage.removeItem('iljas_v8'); app.user = null; app.router.go('auth');
@@ -62,11 +94,10 @@ const app = {
     home: {
         render() {
             const u = app.user;
+            document.getElementById('home-name').innerText = u.name;
             document.getElementById('home-name-header').innerText = u.name;
             document.getElementById('home-holder').innerText = u.name;
-            // НОВОЕ: Вставляем имя назад
             document.getElementById('home-holder-back').innerText = u.name;
-            
             document.getElementById('home-avatar').innerText = u.emoji || '👤';
             document.getElementById('home-bal').innerText = u.balance.toLocaleString();
             document.getElementById('home-acc').innerText = u.accountNumber;
@@ -74,7 +105,6 @@ const app = {
             if(u.isFrozen) c.parentElement.classList.add('frozen'); else c.parentElement.classList.remove('frozen');
         }
     },
-
 
     social: {
         viewId: null,
@@ -108,14 +138,12 @@ const app = {
             await api.save(app.users);
             this.renderReacts(u);
         },
-        // --- WALL LOGIC ---
         renderWall(u) {
             const w = u.wall || [];
             document.getElementById('pp-wall').innerHTML = w.map((m, idx) => {
-                const isOwner = m.author === u.name; // Author of comment is Owner of profile
-                const isMe = m.author === app.user.name; // I am the author
-                const isProfileMine = app.user.id === u.id; // I own this profile
-                
+                const isOwner = m.author === u.name;
+                const isMe = m.author === app.user.name;
+                const isProfileMine = app.user.id === u.id;
                 return `
                 <div class="msg ${isOwner ? 'is-owner' : ''}">
                     ${m.replyTo ? `<div class="reply-info">Ответ для: ${m.replyTo}</div>` : ''}
@@ -149,21 +177,13 @@ const app = {
         async post() {
             const now = Date.now();
             if(app.user.lastComment && (now - app.user.lastComment < 30000)) {
-                return alert(`Жди ${Math.ceil((30000-(now-app.user.lastComment))/1000)} сек`);
+                return alert(`Подождите еще ${Math.ceil((30000-(now-app.user.lastComment))/1000)} сек`);
             }
             const txt = document.getElementById('wall-input').value.trim();
             if(!txt) return;
-            
             const u = app.users.find(x=>x.id===this.viewId);
             if(!u.wall) u.wall=[];
-            
-            u.wall.push({
-                author: app.user.name,
-                text: txt,
-                time: now,
-                replyTo: app.replyTo
-            });
-            
+            u.wall.push({ author: app.user.name, text: txt, time: now, replyTo: app.replyTo });
             app.user.lastComment = now;
             document.getElementById('wall-input').value = '';
             this.cancelReply();
@@ -172,67 +192,24 @@ const app = {
         }
     },
 
-    leaderboard: {
-        render() {
-            const list = document.getElementById('lb-list');
-            const sorted = [...app.users].filter(x=>!x.isAdmin).sort((a,b)=>b.balance - a.balance);
-            list.innerHTML = sorted.map((u,i) => `
-                <div class="l-item" onclick="app.social.open('${u.id}')" style="${u.isFrozen?'opacity:0.5':''}">
-                    <div class="li-left">
-                        <div style="font-weight:bold; width:20px; color:var(--primary)">${i+1}</div>
-                        <div class="li-av">${u.emoji||'👤'}</div>
-                        <div class="li-info">
-                            <div>${u.name} ${u.isFrozen?'❄️':''}</div>
-                            <div>Счет: ${u.accountNumber}</div>
-                        </div>
-                    </div>
-                    <div style="font-weight:bold">${u.balance.toLocaleString()}</div>
-                </div>
-            `).join('');
-        }
-    },
-
-    history: {
-        render() {
-            const list = document.getElementById('hist-list');
-            const h = app.user.history || [];
-            if(!h.length) return list.innerHTML = '<div style="text-align:center; padding:20px; opacity:0.5">Пусто</div>';
-            list.innerHTML = h.map(x => `
-                <div class="l-item">
-                    <div class="li-left">
-                        <div class="li-av">${x.dir==='in'?'⬇️':'↗️'}</div>
-                        <div class="li-info">
-                            <div>${x.dir==='in'?'Входящий':'Перевод'}</div>
-                            <div>${x.date}</div>
-                        </div>
-                    </div>
-                    <div style="color:${x.dir==='in'?'var(--primary)':'inherit'}; font-weight:bold">
-                        ${x.dir==='in'?'+':'-'}${x.amt}
-                    </div>
-                </div>
-            `).join('');
-        }
-    },
-
     actions: {
         async transfer() {
-            if(app.user.isFrozen) return alert('Фриз');
-            const d = document.getElementById('tr-dest').value;
-            const a = parseInt(document.getElementById('tr-amount').value);
-            if(!a || a<=0) return alert('Сумма?');
-            if(app.user.balance<a) return alert('Мало средств');
-            const t = app.users.find(x=>x.accountNumber===d);
-            if(!t) return alert('Нет такого счета');
-            if(t.id===app.user.id) return alert('Себе нельзя');
-            
-            app.user.balance -= a;
-            t.balance += a;
-            
-            const r = { type:'tr', date:new Date().toLocaleDateString(), amt:a, dir:'out' };
+            if(app.user.isFrozen) return alert('Счет заморожен');
+            const dest = document.getElementById('tr-dest').value;
+            const amt = parseInt(document.getElementById('tr-amount').value);
+            if(!amt || amt<=0) return alert('Неверная сумма');
+            if(app.user.balance < amt) return alert('Недостаточно средств');
+            const target = app.users.find(x => x.accountNumber === dest);
+            if(!target) return alert('Получатель не найден');
+            if(target.id === app.user.id) return alert('Нельзя перевести себе');
+
+            app.user.balance -= amt;
+            target.balance += amt;
+            const r = { type:'transfer', date:new Date().toLocaleDateString(), amt:amt, dir:'out' };
             if(!app.user.history) app.user.history=[];
-            if(!t.history) t.history=[];
+            if(!target.history) target.history=[];
             app.user.history.unshift(r);
-            t.history.unshift({...r, dir:'in'});
+            target.history.unshift({...r, dir:'in'});
             
             await api.save(app.users);
             alert('Успешно');
@@ -277,11 +254,46 @@ const app = {
             document.getElementById('btn-adm-freeze').innerText = u.isFrozen?'Разморозить':'Заморозить';
             document.getElementById('modal-adm').classList.add('active');
         },
-        async bal() { const u=app.users.find(x=>x.id===this.selId); const v=prompt('Bal',u.balance); if(v) u.balance=parseInt(v); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
+        async bal() { const u=app.users.find(x=>x.id===this.selId); const v=prompt('Новый баланс:',u.balance); if(v) u.balance=parseInt(v); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
         async freeze() { const u=app.users.find(x=>x.id===this.selId); u.isFrozen=!u.isFrozen; await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
-        async del() { if(confirm('Del?')) { app.users=app.users.filter(x=>x.id!==this.selId); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); } }
+        async del() { if(confirm('Удалить пользователя?')) { app.users=app.users.filter(x=>x.id!==this.selId); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); } }
     },
     
+    leaderboard: {
+        render() {
+            const list = document.getElementById('lb-list');
+            const sorted = [...app.users].filter(x=>!x.isAdmin).sort((a,b)=>b.balance - a.balance);
+            list.innerHTML = sorted.map((u,i) => `
+                <div class="l-item" onclick="app.social.open('${u.id}')" style="${u.isFrozen?'opacity:0.5':''}">
+                    <div class="li-left">
+                        <div style="font-weight:bold; width:20px; color:var(--primary)">${i+1}</div>
+                        <div class="li-av">${u.emoji||'👤'}</div>
+                        <div class="li-info">
+                            <div>${u.name} ${u.isFrozen?'❄️':''}</div>
+                            <div>Счет: ${u.accountNumber}</div>
+                        </div>
+                    </div>
+                    <div style="font-weight:bold">${u.balance.toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+    },
+    history: {
+        render() {
+            const list = document.getElementById('hist-list');
+            const h = app.user.history || [];
+            if(!h.length) return list.innerHTML = '<div style="text-align:center; padding:20px; opacity:0.5">Пусто</div>';
+            list.innerHTML = h.map(x => `
+                <div class="l-item">
+                    <div class="li-left">
+                        <div class="li-av">${x.dir==='in'?'⬇️':'↗️'}</div>
+                        <div class="li-info"><div>${x.dir==='in'?'Входящий':'Перевод'}</div><div>${x.date}</div></div>
+                    </div>
+                    <div style="color:${x.dir==='in'?'var(--primary)':'inherit'}; font-weight:bold">${x.dir==='in'?'+':'-'}${x.amt}</div>
+                </div>
+            `).join('');
+        }
+    },
     ui: {
         closeModal() { document.querySelectorAll('.modal').forEach(x=>x.classList.remove('active')); },
         updateThemeBtn() {
@@ -290,8 +302,7 @@ const app = {
         },
         toggleTheme() {
             document.body.classList.toggle('dark-theme');
-            const isDark = document.body.classList.contains('dark-theme');
-            localStorage.setItem('iljas_dark', isDark);
+            localStorage.setItem('iljas_dark', document.body.classList.contains('dark-theme'));
             this.updateThemeBtn();
         }
     }
