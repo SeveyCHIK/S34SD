@@ -1,0 +1,12 @@
+{
+  "name": "iljas-bank-v2",
+  "version": "2.0.0",
+  "description": "IljasBANK - Sovereign Edition",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
