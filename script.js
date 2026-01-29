@@ -1,13 +1,12 @@
 /* ================================================================= */
 /*               ТВОИ КЛЮЧИ (ЕСЛИ НЕТ - РАБОТАЕТ ЛОКАЛЬНО)           */
 /* ================================================================= */
-const BIN_ID = '697add8bd0ea881f408f3cb5'; 
-const API_KEY = '$2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi'; 
+const BIN_ID = 'ВСТАВЬ_СЮДА_BIN_ID'; 
+const API_KEY = 'ВСТАВЬ_СЮДА_MASTER_KEY'; 
 
 /* --- API --- */
 const api = {
     async get() {
-        // Локальный режим (если ключи не вставлены)
         if(BIN_ID.includes('ВСТАВЬ')) {
             const local = localStorage.getItem('iljas_local_db');
             return local ? JSON.parse(local) : [];
@@ -39,9 +38,12 @@ const app = {
     users: [], user: null, replyTo: null,
     
     async init() {
+        // Инициализация Telegram WebApp (чтобы вибрация работала точно)
+        window.Telegram?.WebApp?.ready();
+        window.Telegram?.WebApp?.expand();
+
         this.users = await api.get();
         
-        // Создаем Админа, если база пустая
         if(this.users.length === 0) {
             this.users.push({
                 id: 'admin', accountNumber: '0000', pass: 'Toyota400',
@@ -51,7 +53,6 @@ const app = {
             await api.save(this.users);
         }
 
-        // Тема
         if(localStorage.getItem('iljas_dark') === 'true') document.body.classList.add('dark-theme');
         
         const sess = localStorage.getItem('iljas_v8');
@@ -69,6 +70,9 @@ const app = {
 
     router: {
         go(p) {
+            // Вибрация при переходе между страницами (приятный эффект)
+            window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
+
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             const target = document.getElementById(`view-${p}`);
             if(target) target.classList.add('active');
@@ -99,28 +103,39 @@ const app = {
             const a = document.getElementById('auth-acc').value;
             const p = document.getElementById('auth-pass').value;
             const u = app.users.find(x => x.accountNumber === a && x.pass === p);
+            
+            const haptic = window.Telegram?.WebApp?.HapticFeedback;
+
             if(u) {
-                app.user = u; localStorage.setItem('iljas_v8', u.id); app.route();
-            } else alert('Ошибка доступа');
+                // ✅ УСПЕХ: Вибрация успеха
+                haptic?.notificationOccurred("success");
+                
+                app.user = u; 
+                localStorage.setItem('iljas_v8', u.id); 
+                app.route();
+            } else {
+                // ❌ ОШИБКА: Вибрация ошибки
+                haptic?.notificationOccurred("error");
+                
+                alert('Неверный номер счета или пароль.');
+            }
         },
         logout() {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("light");
             localStorage.removeItem('iljas_v8'); app.user = null; app.router.go('auth');
         }
     },
 
-    // === ВОТ ЗДЕСЬ БЫЛА ОШИБКА, ТЕПЕРЬ ИСПРАВЛЕНО ===
     home: {
         render() {
             const u = app.user;
             if(!u) return;
 
-            // Используем безопасную функцию (если элемента нет - не крашится)
             const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 
-            set('home-name-header', u.name); // Заголовок
-            set('home-holder', u.name);      // Карта перед
-            set('home-holder-back', u.name); // Карта зад
-            
+            set('home-name-header', u.name);
+            set('home-holder', u.name);
+            set('home-holder-back', u.name);
             set('home-avatar', u.emoji || '👤');
             set('home-bal', u.balance.toLocaleString());
             set('home-acc', u.accountNumber);
@@ -146,6 +161,9 @@ const app = {
             this.renderReacts(u);
             this.renderWall(u);
             document.getElementById('modal-pp').classList.add('active');
+            
+            // Вибрация при открытии профиля
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("medium");
             this.cancelReply();
         },
         renderReacts(u) {
@@ -159,6 +177,9 @@ const app = {
             });
         },
         async react(type) {
+            // Вибрация при лайке
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("light");
+            
             const u = app.users.find(x=>x.id===this.viewId);
             if(!u.reactions) u.reactions={};
             if(!u.reactions[type]) u.reactions[type]=[];
@@ -190,6 +211,7 @@ const app = {
             }).join('');
         },
         prepReply(name) {
+            window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
             app.replyTo = name;
             document.getElementById('reply-bar').classList.add('active');
             document.getElementById('reply-to-name').innerText = name;
@@ -199,6 +221,7 @@ const app = {
             document.getElementById('reply-bar').classList.remove('active');
         },
         async delMsg(idx) {
+            if(!confirm('Удалить?')) return;
             const u = app.users.find(x=>x.id===this.viewId);
             u.wall.splice(idx, 1);
             await api.save(app.users);
@@ -207,11 +230,14 @@ const app = {
         async post() {
             const now = Date.now();
             if(app.user.lastComment && (now - app.user.lastComment < 30000)) {
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("warning");
                 return alert(`Жди ${Math.ceil((30000-(now-app.user.lastComment))/1000)} сек`);
             }
             const inp = document.getElementById('wall-input');
             const txt = inp.value.trim();
             if(!txt) return;
+            
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("heavy");
             
             const u = app.users.find(x=>x.id===this.viewId);
             if(!u.wall) u.wall=[];
@@ -227,15 +253,24 @@ const app = {
 
     actions: {
         async transfer() {
-            if(app.user.isFrozen) return alert('Счет заморожен');
+            if(app.user.isFrozen) {
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
+                return alert('Счет заморожен');
+            }
             const dest = document.getElementById('tr-dest').value;
             const amt = parseInt(document.getElementById('tr-amount').value);
-            if(!amt || amt<=0) return alert('Неверная сумма');
-            if(app.user.balance < amt) return alert('Недостаточно');
+            if(!amt || amt<=0) {
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("warning");
+                return alert('Неверная сумма');
+            }
+            if(app.user.balance < amt) {
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
+                return alert('Недостаточно средств');
+            }
             
             const target = app.users.find(x => x.accountNumber === dest);
             if(!target) return alert('Получатель не найден');
-            if(target.id === app.user.id) return alert('Нельзя себе');
+            if(target.id === app.user.id) return alert('Нельзя перевести себе');
 
             app.user.balance -= amt;
             target.balance += amt;
@@ -246,6 +281,8 @@ const app = {
             target.history.unshift({...r, dir:'in'});
             
             await api.save(app.users);
+            
+            window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
             alert('Успешно');
             app.router.go('home');
         }
@@ -309,6 +346,7 @@ const app = {
             `).join('');
         },
         async create() {
+            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("medium");
             const n = document.getElementById('adm-name').value;
             const em = document.getElementById('adm-emoji').value || '👤';
             if(!n) return;
@@ -323,15 +361,16 @@ const app = {
             this.render();
         },
         mng(id) {
+            window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
             this.selId = id;
             const u = app.users.find(x=>x.id===id);
             document.getElementById('adm-mng-name').innerText = u.name;
             document.getElementById('btn-adm-freeze').innerText = u.isFrozen?'Разморозить':'Заморозить';
             document.getElementById('modal-adm').classList.add('active');
         },
-        async bal() { const u=app.users.find(x=>x.id===this.selId); const v=prompt('Баланс:',u.balance); if(v) u.balance=parseInt(v); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
+        async bal() { const u=app.users.find(x=>x.id===this.selId); const v=prompt('Новый баланс:',u.balance); if(v) u.balance=parseInt(v); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
         async freeze() { const u=app.users.find(x=>x.id===this.selId); u.isFrozen=!u.isFrozen; await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); },
-        async del() { if(confirm('Удалить?')) { app.users=app.users.filter(x=>x.id!==this.selId); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); } }
+        async del() { if(confirm('Удалить пользователя?')) { app.users=app.users.filter(x=>x.id!==this.selId); await api.save(app.users); this.render(); document.getElementById('modal-adm').classList.remove('active'); } }
     },
     
     ui: {
@@ -344,6 +383,7 @@ const app = {
             }
         },
         toggleTheme() {
+            window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
             document.body.classList.toggle('dark-theme');
             localStorage.setItem('iljas_dark', document.body.classList.contains('dark-theme'));
             this.updateThemeBtn();
@@ -352,4 +392,3 @@ const app = {
 };
 
 window.onload = () => app.init();
-
