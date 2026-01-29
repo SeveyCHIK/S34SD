@@ -1,8 +1,8 @@
 /* ================================================================= */
 /*               ТВОИ КЛЮЧИ (ЕСЛИ НЕТ - РАБОТАЕТ ЛОКАЛЬНО)           */
 /* ================================================================= */
-const BIN_ID = 'ВСТАВЬ_СЮДА_BIN_ID'; 
-const API_KEY = 'ВСТАВЬ_СЮДА_MASTER_KEY'; 
+const BIN_ID = '697add8bd0ea881f408f3cb5'; 
+const API_KEY = '$2a$10$JGG6AhM9jv1kFsJRtyt2XeO3NiVu5DsG6GfifWZFYhSuzXaHY90mi'; 
 
 /* --- API --- */
 const api = {
@@ -392,3 +392,4 @@ const app = {
 };
 
 window.onload = () => app.init();
+
